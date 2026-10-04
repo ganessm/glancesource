@@ -15,6 +15,41 @@
 <p align="center">A lightweight, highly customizable dashboard that displays<br> your feeds in a beautiful, streamlined interface</p>
 
 ![](docs/images/readme-main-image.png)
+#Implentation. This is to store the image to ECR
+# ===== One-time setup (only the first time ever) =====
+# Create the ECR repository (an empty storage slot in AWS)
+aws ecr create-repository --repository-name glancesource --region ap-southeast-2
+
+# ===== Every time you deploy a new version =====
+
+# 1. Set the registry address (account ID is looked up automatically)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+REGISTRY="$ACCOUNT.dkr.ecr.ap-southeast-2.amazonaws.com"
+echo $REGISTRY
+
+# 2. Get the latest code into CloudShell
+#    First time: clone. After that: just pull updates.
+cd ~
+git clone https://github.com/ganessm/glancesource.git   # first time only
+cd ~/glancesource
+git pull                                                  # later times
+
+# 3. Use the current commit ID as the version tag
+TAG=$(git rev-parse --short HEAD)
+echo $TAG
+
+# 4. Log in Docker to ECR (valid ~12 hours)
+aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin $REGISTRY
+
+# 5. Build the image from the local copy in ~/glancesource
+docker build -t $REGISTRY/glancesource:$TAG .
+docker images        # check it exists
+
+# 6. Upload the image from CloudShell to ECR
+docker push $REGISTRY/glancesource:$TAG
+
+# 7. Confirm it arrived in ECR
+aws ecr list-images --repository-name glancesource --region ap-southeast-2
 
 ## Features
 ### Various widgets
